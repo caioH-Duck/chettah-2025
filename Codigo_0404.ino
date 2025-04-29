@@ -1,3 +1,4 @@
+// Definição dos pinos
 int sensorCentro = A2;
 int sensorDireita = A0;
 int sensorEsquerda = A1;
@@ -10,8 +11,19 @@ int IN4 = 9;
 int ENB = 10;
 
 int valorLinha = 500; // Valor de referência para detectar a linha
-int fspeed = 100;
-int cspeed = 120;
+int fspeed = 100;     // Velocidade padrão
+int cspeed = 140;     // Velocidade de curva
+
+// Variáveis do PID
+double kp = 0.5;      // Ganho proporcional
+double ki = 0.1;      // Ganho integral
+double kd = 0.1;      // Ganho derivativo
+
+double setpoint = 0;  // Ponto de referência (linha)
+double input;         // Leitura dos sensores
+double output;        // Saída do PID
+double prevError = 0; // Erro anterior
+double integral = 0;  // Integral do erro
 
 void setup() {
   pinMode(ENA, OUTPUT);
@@ -35,69 +47,33 @@ void loop() {
   Serial.print(leituraDireita);
   Serial.print(" Esquerda: ");
   Serial.println(leituraEsquerda);
- if(leituraCentro > valorLinha && leituraEsquerda > valorLinha && leituraDireita > valorLinha){
-  seguirEmFrente();
- }
- else if (leituraCentro > valorLinha && leituraDireita > valorLinha){
-   if (leituraCentro > leituraDireita){
-    seguirEmFrente();
-   }
-   else{
-   virarDireita();
-   }
-  }
+
+  // Calcular o erro
+  int erro = (leituraEsquerda - leituraDireita); // Diferença entre os sensores
+
+  // PID
+  double timeChange = 0.1; // Intervalo de tempo (ajuste conforme necessário)
+  integral += erro * timeChange;
+  double derivative = (erro - prevError) / timeChange;
+  output = (kp * erro) + (ki * integral) + (kd * derivative);
+  prevError = erro;
+
+  // Ajustar a velocidade dos motores com base na saída do PID
+  int velocidadeEsquerda = fspeed + output;
+  int velocidadeDireita = fspeed - output;
+
+  // Limitar as velocidades para não exceder 150
+  velocidadeEsquerda = constrain(velocidadeEsquerda, 0, 150);
+  velocidadeDireita = constrain(velocidadeDireita, 0, 150);
+
+  // Controlar os motores
+  analogWrite(ENA, velocidadeEsquerda);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
   
-  else if (leituraCentro > valorLinha && leituraEsquerda > valorLinha){
-   if (leituraCentro > leituraEsquerda){
-    seguirEmFrente();
-   }
-   else{
-   virarEsquerda();
-   }
-  }
-  else if (leituraCentro > valorLinha && leituraDireita < valorLinha && leituraEsquerda < valorLinha) {
-    seguirEmFrente();
-  } else if (leituraEsquerda > valorLinha) {
-    virarEsquerda();
-  } else if (leituraDireita > valorLinha) {
-    virarDireita();
-  } else {
-    seguirEmFrente();
-  }
+  analogWrite(ENB, velocidadeDireita);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
 
-  delay(10);
-}
-
-void seguirEmFrente() {
-  analogWrite(ENA, fspeed);
-  digitalWrite(IN1, LOW); // Inverteu o sentido
-  digitalWrite(IN2, HIGH); // Inverteu o sentido
-  analogWrite(ENB, fspeed);
-  digitalWrite(IN3, LOW); // Inverteu o sentido
-  digitalWrite(IN4, HIGH); // Inverteu o sentido
-}
-
-void virarEsquerda() {
-  analogWrite(ENA, cspeed);
-  digitalWrite(IN1, LOW); // Inverteu o sentido
-  digitalWrite(IN2, HIGH); // Inverteu o sentido
-  analogWrite(ENB, cspeed);
-  digitalWrite(IN3, HIGH); // Inverteu o sentido
-  digitalWrite(IN4, LOW); // Inverteu o sentido
-  delay(80);
-}
-
-void virarDireita() {
-  analogWrite(ENA, cspeed);
-  digitalWrite(IN1, HIGH); // Inverteu o sentido
-  digitalWrite(IN2, LOW); // Inverteu o sentido
-  analogWrite(ENB, cspeed);
-  digitalWrite(IN3, LOW); // Inverteu o sentido
-  digitalWrite(IN4, HIGH); // Inverteu o sentido
-  delay(80);
-}
-
-void parar() {
-  analogWrite(ENA, 0);
-  analogWrite(ENB, 0);
+  delay(10); // Delay para estabilizar a leitura
 }
